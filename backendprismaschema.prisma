@@ -1,0 +1,446 @@
+// Prisma Schema for Campus Super-App
+// This file defines the database structure for all modules
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  username    String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  phone       String?
+  avatar      String?
+  role        UserRole @default(STUDENT)
+  isVerified  Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  profile            UserProfile?
+  deliveryOrders     DeliveryOrder[]     @relation("UserOrders")
+  deliveryAgent      DeliveryAgent?
+  shopkeeper         Shopkeeper?
+  events             Event[]
+  eventRegistrations EventRegistration[]
+  forumPosts         ForumPost[]
+  forumAnswers       ForumAnswer[]
+  notes              Note[]
+  lostItems          LostItem[]          @relation("LostBy")
+  foundItems         LostItem[]          @relation("FoundBy")
+  rides              Ride[]              @relation("RideDriver")
+  rideBookings       RideBooking[]
+  codeSubmissions    CodeSubmission[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  studentId    String?
+  department   String?
+  year         Int?
+  bio          String?
+  interests    String[]
+  skills       String[]
+  socialLinks  Json?
+  preferences  Json?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+// Delivery System
+model DeliveryOrder {
+  id             String          @id @default(cuid())
+  userId         String
+  shopId         String
+  agentId        String?
+  items          Json
+  totalAmount    Decimal         @db.Decimal(10, 2)
+  deliveryFee    Decimal         @db.Decimal(5, 2)
+  status         DeliveryStatus  @default(PENDING)
+  deliveryAddress String
+  contactNumber  String
+  specialInstructions String?
+  estimatedTime  Int? // minutes
+  actualTime     Int?
+  rating         Int?
+  review         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  user  User           @relation("UserOrders", fields: [userId], references: [id])
+  shop  Shopkeeper     @relation(fields: [shopId], references: [id])
+  agent DeliveryAgent? @relation(fields: [agentId], references: [id])
+
+  @@map("delivery_orders")
+}
+
+model Shopkeeper {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  shopName    String
+  description String?
+  category    String
+  location    String
+  phone       String
+  hours       Json
+  isActive    Boolean @default(true)
+  rating      Decimal @default(0) @db.Decimal(3, 2)
+  totalOrders Int     @default(0)
+
+  user   User            @relation(fields: [userId], references: [id])
+  orders DeliveryOrder[]
+  menu   MenuItem[]
+
+  @@map("shopkeepers")
+}
+
+model MenuItem {
+  id          String     @id @default(cuid())
+  shopId      String
+  name        String
+  description String?
+  price       Decimal    @db.Decimal(8, 2)
+  category    String
+  image       String?
+  isAvailable Boolean    @default(true)
+  tags        String[]
+
+  shop Shopkeeper @relation(fields: [shopId], references: [id])
+
+  @@map("menu_items")
+}
+
+model DeliveryAgent {
+  id              String  @id @default(cuid())
+  userId          String  @unique
+  vehicleType     String
+  vehicleNumber   String
+  licenseNumber   String?
+  isAvailable     Boolean @default(true)
+  currentLocation Json?
+  rating          Decimal @default(0) @db.Decimal(3, 2)
+  totalDeliveries Int     @default(0)
+  earnings        Decimal @default(0) @db.Decimal(10, 2)
+
+  user   User            @relation(fields: [userId], references: [id])
+  orders DeliveryOrder[]
+
+  @@map("delivery_agents")
+}
+
+// Event Management
+model Event {
+  id            String    @id @default(cuid())
+  organizerId   String
+  title         String
+  description   String
+  category      String
+  venue         String
+  startTime     DateTime
+  endTime       DateTime
+  maxCapacity   Int?
+  registrationDeadline DateTime?
+  isPublic      Boolean   @default(true)
+  isPaid        Boolean   @default(false)
+  price         Decimal?  @db.Decimal(8, 2)
+  tags          String[]
+  imageUrl      String?
+  status        EventStatus @default(UPCOMING)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  organizer     User                @relation(fields: [organizerId], references: [id])
+  registrations EventRegistration[]
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id           String            @id @default(cuid())
+  eventId      String
+  userId       String
+  status       RegistrationStatus @default(REGISTERED)
+  checkedIn    Boolean           @default(false)
+  checkinTime  DateTime?
+  paymentStatus PaymentStatus?
+  createdAt    DateTime          @default(now())
+
+  event Event @relation(fields: [eventId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+  @@map("event_registrations")
+}
+
+// Forum System
+model ForumPost {
+  id          String      @id @default(cuid())
+  userId      String
+  title       String
+  content     String
+  category    String
+  tags        String[]
+  isAnonymous Boolean     @default(false)
+  upvotes     Int         @default(0)
+  downvotes   Int         @default(0)
+  views       Int         @default(0)
+  status      PostStatus  @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user    User          @relation(fields: [userId], references: [id])
+  answers ForumAnswer[]
+
+  @@map("forum_posts")
+}
+
+model ForumAnswer {
+  id          String     @id @default(cuid())
+  postId      String
+  userId      String
+  content     String
+  isAnonymous Boolean    @default(false)
+  upvotes     Int        @default(0)
+  downvotes   Int        @default(0)
+  isAccepted  Boolean    @default(false)
+  status      PostStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  post ForumPost @relation(fields: [postId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+
+  @@map("forum_answers")
+}
+
+// E-Library System
+model Note {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  subject     String
+  description String?
+  content     String?
+  fileUrl     String?
+  fileType    String?
+  fileSize    Int?
+  tags        String[]
+  semester    String?
+  year        String?
+  professor   String?
+  downloads   Int      @default(0)
+  rating      Decimal  @default(0) @db.Decimal(3, 2)
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notes")
+}
+
+// Lost & Found System
+model LostItem {
+  id          String     @id @default(cuid())
+  lostByUserId String?
+  foundByUserId String?
+  title       String
+  description String
+  category    String
+  location    String
+  dateFound   DateTime?
+  dateLost    DateTime?
+  images      String[]
+  status      ItemStatus @default(LOST)
+  contactInfo String?
+  reward      Decimal?   @db.Decimal(8, 2)
+  tags        String[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  lostBy  User? @relation("LostBy", fields: [lostByUserId], references: [id])
+  foundBy User? @relation("FoundBy", fields: [foundByUserId], references: [id])
+
+  @@map("lost_items")
+}
+
+// Ride/Carpool System
+model Ride {
+  id            String    @id @default(cuid())
+  driverId      String
+  fromLocation  String
+  toLocation    String
+  departureTime DateTime
+  availableSeats Int
+  pricePerSeat  Decimal   @db.Decimal(6, 2)
+  description   String?
+  status        RideStatus @default(AVAILABLE)
+  vehicleInfo   Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  driver   User          @relation("RideDriver", fields: [driverId], references: [id])
+  bookings RideBooking[]
+
+  @@map("rides")
+}
+
+model RideBooking {
+  id        String        @id @default(cuid())
+  rideId    String
+  userId    String
+  seats     Int           @default(1)
+  status    BookingStatus @default(PENDING)
+  amount    Decimal       @db.Decimal(6, 2)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([rideId, userId])
+  @@map("ride_bookings")
+}
+
+// CodeQuest System
+model CodeProblem {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  difficulty  Difficulty
+  category    String
+  tags        String[]
+  constraints String?
+  examples    Json
+  testCases   Json
+  solution    String?
+  hints       String[]
+  timeLimit   Int        @default(1000) // milliseconds
+  memoryLimit Int        @default(256)  // MB
+  isPublic    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  submissions CodeSubmission[]
+
+  @@map("code_problems")
+}
+
+model CodeSubmission {
+  id          String           @id @default(cuid())
+  problemId   String
+  userId      String
+  language    String
+  code        String
+  status      SubmissionStatus
+  score       Int?
+  executionTime Int?
+  memoryUsed  Int?
+  testsPassed Int              @default(0)
+  totalTests  Int              @default(0)
+  error       String?
+  createdAt   DateTime         @default(now())
+
+  problem CodeProblem @relation(fields: [problemId], references: [id])
+  user    User        @relation(fields: [userId], references: [id])
+
+  @@map("code_submissions")
+}
+
+// Enums
+enum UserRole {
+  STUDENT
+  FACULTY
+  ADMIN
+  DELIVERY_AGENT
+  SHOPKEEPER
+  DRIVER
+}
+
+enum DeliveryStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITLISTED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PostStatus {
+  ACTIVE
+  HIDDEN
+  DELETED
+}
+
+enum ItemStatus {
+  LOST
+  FOUND
+  CLAIMED
+  RETURNED
+}
+
+enum RideStatus {
+  AVAILABLE
+  FULL
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum SubmissionStatus {
+  PENDING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+}
