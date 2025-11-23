@@ -134,15 +134,11 @@ Campus Super-App is a modular, scalable platform that integrates essential campu
 ### Backend
 - **Node.js 18+** - JavaScript runtime
 - **Express.js** - Web application framework
-- **GraphQL** - Query language for APIs
-- **Prisma** - Next-generation ORM
-- **Socket.io** - Real-time communication
+
 
 ### Database
 - **PostgreSQL** - Primary relational database
-- **Redis** - In-memory caching and sessions
-- **MongoDB** - Document database for flexible data
-- **AWS S3** - File storage and CDN
+
 
 ### AI & Services
 - **OpenAI API** - AI-powered features
@@ -153,8 +149,7 @@ Campus Super-App is a modular, scalable platform that integrates essential campu
 ### DevOps
 - **Docker** - Containerization
 - **GitHub Actions** - CI/CD pipeline
-- **AWS ECS** - Container orchestration
-- **Terraform** - Infrastructure as Code
+
 
 ## 🚀 Installation
 
